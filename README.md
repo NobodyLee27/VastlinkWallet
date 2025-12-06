@@ -23,7 +23,10 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+General digital asset management protocol with an extensible signer abstraction layer built on NestJS. Includes three signer implementations:
+- `PrivateKeySignerService` using `ethers` for local ECDSA signing
+- `MPCSignerService` integrating the Lit Protocol SDK for MPC signing
+- `HSMSignerService` placeholder for PKCS#11 HSM-based signing
 
 ## Project setup
 
@@ -96,3 +99,42 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Configuration
+
+Environment variables used by signers:
+- `PRIVATE_KEY`: ECDSA private key for `PrivateKeySignerService`
+- `ETHEREUM_PRIVATE_KEY`: Hot wallet key for Lit session signatures
+- `LIT_PKP_PUBLIC_KEY`: PKP public key used by Lit MPC signing
+- `LIT_NETWORK`: Lit network name (`DatilDev`, `DatilTest`, `Datil`)
+
+## CLI Demo
+
+Sign the message `abc` via a chosen signer:
+
+```bash
+# Private key signer
+PRIVATE_KEY=0x... pnpm run cli:sign -- --type=private
+
+# MPC signer (requires Lit setup)
+ETHEREUM_PRIVATE_KEY=0x... LIT_PKP_PUBLIC_KEY=0x... LIT_NETWORK=DatilDev pnpm run cli:sign -- --type=mpc
+
+# HSM placeholder
+pnpm run cli:sign -- --type=hsm
+```
+
+## Unit Tests
+
+```bash
+# Run all tests
+pnpm run test
+
+# Optionally run MPC test (requires env)
+LIT_TEST=true ETHEREUM_PRIVATE_KEY=0x... LIT_PKP_PUBLIC_KEY=0x... pnpm run test
+```
+
+## Architecture
+
+- Interface `ISigner` defines `sign(message: string): Promise<string>`
+- Services implement `ISigner` and are injected via NestJS DI
+- `SignerFactoryService` returns a signer by type: `private`, `mpc`, `hsm`
+- `SignerModule` exports all signers and the factory for reuse
