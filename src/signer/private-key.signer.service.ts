@@ -19,4 +19,3 @@ export class PrivateKeySignerService implements ISigner {
     return await this.wallet.signMessage(message);
   }
 }
-
