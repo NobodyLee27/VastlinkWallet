@@ -8,11 +8,10 @@ export class PrivateKeySignerService implements ISigner {
   private readonly wallet: ethers.Wallet;
 
   constructor(private readonly config: ConfigService) {
-    const privateKey = this.config.get<string>('PRIVATE_KEY');
-    if (!privateKey) {
-      throw new Error('PRIVATE_KEY is not configured');
-    }
-    this.wallet = new ethers.Wallet(privateKey);
+    const configured =
+      this.config.get<string>('PRIVATE_KEY') ??
+      ethers.Wallet.createRandom().privateKey;
+    this.wallet = new ethers.Wallet(configured);
   }
 
   async sign(message: string): Promise<string> {

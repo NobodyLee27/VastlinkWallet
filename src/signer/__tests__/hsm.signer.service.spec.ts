@@ -11,8 +11,8 @@ describe('HSMSignerService', () => {
     service = module.get<HSMSignerService>(HSMSignerService);
   });
 
-  it('throws not implemented', async () => {
-    await expect(service.sign('abc')).rejects.toThrow();
+  it('sign("abc") returns hex-like string', async () => {
+    const sig = await service.sign('abc');
+    expect(sig).toMatch(/^0x[0-9a-fA-F]+$/);
   });
 });
-

@@ -17,8 +17,13 @@ export class MPCSignerService implements ISigner {
   private connected = false;
 
   constructor(private readonly config: ConfigService) {
-    const networkName = this.config.get<string>('LIT_NETWORK') ?? 'DatilDev';
-    const litNetwork = (LIT_NETWORK as any)[networkName] ?? LIT_NETWORK.DatilDev;
+    const networkName =
+      this.config.get<string>('signer.litNetwork') ??
+      this.config.get<string>('LIT_NETWORK') ??
+      'DatilDev';
+    const litNetwork =
+      LIT_NETWORK[networkName as keyof typeof LIT_NETWORK] ??
+      LIT_NETWORK.DatilDev;
 
     this.litClient = new LitNodeClient({
       litNetwork,
@@ -36,12 +41,16 @@ export class MPCSignerService implements ISigner {
   async sign(message: string): Promise<string> {
     await this.ensureConnected();
 
-    const ethPriv = this.config.get<string>('ETHEREUM_PRIVATE_KEY');
+    const ethPriv =
+      this.config.get<string>('signer.ethPrivateKey') ??
+      this.config.get<string>('ETHEREUM_PRIVATE_KEY');
     if (!ethPriv) {
       throw new Error('ETHEREUM_PRIVATE_KEY is not configured');
     }
 
-    const pkpPublicKey = this.config.get<string>('LIT_PKP_PUBLIC_KEY');
+    const pkpPublicKey =
+      this.config.get<string>('signer.pkpPublicKey') ??
+      this.config.get<string>('LIT_PKP_PUBLIC_KEY');
     if (!pkpPublicKey) {
       throw new Error('LIT_PKP_PUBLIC_KEY is not configured');
     }
@@ -61,7 +70,11 @@ export class MPCSignerService implements ISigner {
           ability: LIT_ABILITY.LitActionExecution,
         },
       ],
-      authNeededCallback: async ({ uri, expiration, resourceAbilityRequests }) => {
+      authNeededCallback: async ({
+        uri,
+        expiration,
+        resourceAbilityRequests,
+      }) => {
         const toSign = await createSiweMessage({
           uri: uri!,
           expiration: expiration!,
@@ -70,7 +83,7 @@ export class MPCSignerService implements ISigner {
           nonce: await this.litClient.getLatestBlockhash(),
           litNodeClient: this.litClient,
         });
-        return await generateAuthSig({ signer: wallet as any, toSign });
+        return await generateAuthSig({ signer: wallet, toSign });
       },
     });
 
@@ -94,10 +107,25 @@ export class MPCSignerService implements ISigner {
       },
     });
 
-    const jsonSignature = JSON.parse(res.response as string);
-    const r = `0x${jsonSignature.r}`;
-    const s = `0x${jsonSignature.s}`;
-    const v = Number(jsonSignature.recid) + 27;
+    const responseText =
+      typeof res.response === 'string'
+        ? res.response
+        : JSON.stringify(res.response);
+    const parsed: unknown = JSON.parse(responseText);
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error('Invalid signature response');
+    }
+    const rec = parsed as Record<string, unknown>;
+    const rVal = rec['r'];
+    const sVal = rec['s'];
+    const recidVal = rec['recid'];
+    if (typeof rVal !== 'string' || typeof sVal !== 'string') {
+      throw new Error('Invalid signature fields');
+    }
+    const r = `0x${rVal}`;
+    const s = `0x${sVal}`;
+    const v =
+      typeof recidVal === 'number' ? recidVal + 27 : Number(recidVal) + 27;
     const joined = ethers.utils.joinSignature({ r, s, v });
     return joined;
   }
